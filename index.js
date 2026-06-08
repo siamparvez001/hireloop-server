@@ -37,7 +37,6 @@ async function run() {
 
         app.get('/api/users', async (req, res) => {
             const cursor = usersCollection.find();
-            // const cursor = usersCollection.find().skip(6);
             const result = await cursor.toArray();
             res.send(result);
         })
