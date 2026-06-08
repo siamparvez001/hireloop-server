@@ -12,10 +12,6 @@ app.get('/', (req, res) => {
     res.send('Hello World!');
 });
 
-
-
-
-
 const uri = process.env.MONGODB_URI;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -32,12 +28,11 @@ async function run() {
         // Connect the client to the server	(optional starting in v4.7)
         await client.connect();
 
-
-
         const database = client.db("hireloop_db");
         const jobCollection = database.collection("jobs");
         const companyCollection = database.collection("companies");
         const usersCollection = database.collection("user")
+        const applicationsCollection = database.collection("applications")
 
 
         app.get('/api/users', async (req, res) => {
@@ -46,8 +41,6 @@ async function run() {
             const result = await cursor.toArray();
             res.send(result);
         })
-
-
 
         app.get('/api/jobs', async (req, res) => {
             const query = {};
@@ -83,11 +76,30 @@ async function run() {
             res.send(result);
         })
 
-
-
+        // appications related apis
+        app.get('/api/applications', async(req, res) => {
+            const query = {};
+            if (req.query.applicationId){
+                query.applicationId = req.query.applicationId
+            }
+            if (req.query.jobId){
+                query.jobId = req.query.jobId;
+            }
+            const cursor = applicationsCollection.find(query);
+            const result = await cursor.toArray();
+            res.send(result);
+        })
+        app.post('/api/applications', async(req, res)=>{
+            const application = req.body;
+            const newApplication = {
+                ...application,
+                createdAt: new Date()
+            }
+            const result = await applicationsCollection.insertOne(newApplication);
+            res.send(result);
+        })
 
         // company related api
-
         app.get('/api/companies', async (req, res) => {
             const cursor = companyCollection.find();
             const result = await cursor.toArray();
