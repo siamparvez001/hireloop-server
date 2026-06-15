@@ -102,23 +102,57 @@ async function run() {
             next();
         }
 
-        app.get('/api/users', async (req, res) => {
-            const cursor = usersCollection.find(); 0
-            const result = await cursor.toArray();
-            res.send(result);
-        })
 
+
+        // Jobs related api
         app.get('/api/jobs', async (req, res) => {
+            console.log('server side q', req.query)
             const query = {};
+            // job filter related query
+            if (req.query.search) {
+                query.$or = [
+                    { jobTitle: { $regex: req.query.search, $options: 'i' } },
+                    { companyName: { $regex: req.query.search, $options: 'i' } }
+                ]
+            }
+
+            if (req.query.jobType) {
+                query.jobType = req.query.jobType
+            }
+            if (req.query.jobCategory) {
+                query.jobCategory = req.query.jobCategory
+            }
+            if (req.query.isRemote) {
+                query.isRemote = req.query.isRemote
+            }
+            
+
+
+
+            // company related query
             if (req.query.companyId) {
                 query.companyId = req.query.companyId;
             }
             if (req.query.status) {
                 query.status = req.query.status;
             }
-            const cursor = jobCollection.find(query);
+
+            // pagination related work
+            if (req.query.page) {
+                const page = req.query.page;
+                const perPage = req.query.perPage || 6;
+                const skipItems = (page - 1) * perPage
+
+                const total = await jobCollection.countDocuments(query);
+                const cursor = await jobCollection.find(query).skip(skipItems).limit(perPage);
+                const jobs = await cursor.toArray();
+                return res.send({ total, jobs });
+            }
+
+            const cursor = await jobCollection.find(query);
             const result = await cursor.toArray();
-            res.send(result);
+            console.log(result)
+            res.send({total:result.length, jobs:result});
         })
 
 
@@ -142,11 +176,18 @@ async function run() {
             res.send(result);
         })
 
+        
+
         // appications related apis
         app.get('/api/applications', verifyToken, verifySeeker, async (req, res) => {
             const query = {};
             if (req.query.applicationId) {
                 query.applicationId = req.query.applicationId
+
+                console.log(req.user, req.query.applicantId)
+                if (req.user._id.toString() !== req.query.applicantId) {
+                    return res.status(403).send({ message: 'forbidden access' })
+                }
             }
             if (req.query.jobId) {
                 query.jobId = req.query.jobId;
@@ -166,14 +207,8 @@ async function run() {
         })
 
         // company related api
-        // app.get('/api/companies', async (req, res) => {
-        //     const cursor = companyCollection.find();
-        //     const result = await cursor.toArray();
-        //     res.send(result);
-        // })
-
         // inefficient way to join/aggregate collection
-        app.get('/api/companies', logger, verifyToken, verifyAdmin, async (req, res) => {
+        app.get('/api/companies', verifyToken, verifyAdmin, async (req, res) => {
             const cursor = companyCollection.find();
             const companies = await cursor.toArray();
 
@@ -262,18 +297,7 @@ async function run() {
         })
 
 
-        // app.patch('/api/companies/:id', verifyToken, async (req, res) => {
-        //     const id = req.params.id;
-        //     const updatedCompany = req.body;
-        //     const filter = { _id: new ObjectId(id) }
-        //     const updatedDoc = {
-        //         $set: {
-        //             status: updatedCompany.status
-        //         }
-        //     }
-        //     const result = await companyCollection.updateOne(filter, updatedDoc);
-        //     res.send(result);
-        // })
+
         // plans related api
         app.get('/api/plans', async (req, res) => {
             const query = {}
